@@ -112,6 +112,21 @@ fi
 read -p "Filter device types? (all/serial/storage) [all]: " DEVICE_FILTER
 DEVICE_FILTER=${DEVICE_FILTER:-all}
 
+# 询问是否配置EZ-mion兼容性
+echo
+read -p "Configure for EZ-mion system monitor? [Y/n] " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Nn]$ ]]; then
+    EZ_MION_MODE=false
+else
+    EZ_MION_MODE=true
+    # 自动设置为EZ-mion专用配置
+    CONTAINER_FILTER="specific"
+    SPECIFIC_CONTAINERS="system-monitor"
+    DEVICE_FILTER="all"
+    print_info "EZ-mion mode enabled - will configure for system-monitor container"
+fi
+
 echo
 print_header "==> Installing USB Docker Passthrough..."
 echo
@@ -426,6 +441,50 @@ lsusb 2>/dev/null | head -5 | sed 's/^/  /'
 echo
 print_warning "Important: Containers must run with --cap-add=MKNOD --cap-add=SYS_ADMIN"
 echo
+
+# EZ-mion特定配置和测试
+if [ "$EZ_MION_MODE" = "true" ]; then
+    echo
+    print_header "==> EZ-mion Specific Configuration"
+    echo
+    
+    # 检查EZ-mion容器是否运行
+    if docker ps --format '{{.Names}}' | grep -q "^system-monitor$"; then
+        print_success "检测到system-monitor容器正在运行"
+        
+        # 为运行中的容器添加现有USB设备
+        print_info "为运行中的容器添加现有USB设备..."
+        
+        for device in /dev/ttyUSB* /dev/ttyACM* /dev/hidraw* /dev/video*; do
+            if [ -e "$device" ]; then
+                print_info "添加设备: $device"
+                /usr/local/sbin/usb-docker-action.sh add_serial "$(basename "$device")" "$device" 2>/dev/null || true
+            fi
+        done
+        
+        print_success "已为运行中的容器添加现有USB设备"
+    else
+        print_warning "system-monitor容器未运行"
+        print_info "当您启动EZ-mion容器时，USB设备将自动添加"
+    fi
+    
+    echo
+    print_info "EZ-mion启动建议:"
+    echo "1. 启动EZ-mion容器:"
+    echo "   docker-compose up -d"
+    echo
+    echo "2. 或使用启动脚本:"
+    echo "   ./start.sh  (Linux)"
+    echo "   start.bat   (Windows)"
+    echo
+    echo "3. 测试USB设备:"
+    echo "   docker exec system-monitor ls -l /dev/ttyUSB*"
+    echo
+    echo "4. 查看USB直通状态:"
+    echo "   usb-docker-ctl status"
+    echo
+    print_success "EZ-mion USB直通配置完成！"
+fi
 
 exit 0
 
