@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 #
 # USB Docker直通功能 - 一键部署脚本
 # 适用于SSH远程部署，所有文件自包含在脚本中
@@ -487,4 +487,3 @@ if [ "$EZ_MION_MODE" = "true" ]; then
 fi
 
 exit 0
-
